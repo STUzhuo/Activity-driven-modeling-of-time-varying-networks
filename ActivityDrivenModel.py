@@ -6,18 +6,18 @@ from pylab import mpl
 import csv
 mpl.rcParams["font.sans-serif"] = ["SimHei"]
 # 定义常量
-N = 3000# 网络中节点个数
-m = 3 # 每时刻活跃节点发边数量
+N = 5000# 网络中节点个数
+m = 5 # 每时刻活跃节点发边数量
 gama = 2.2 # 定义活跃度幂律分布指数
 lBound = 0.001 # 定义活跃度下限
-uBound = 1 # 定义活跃度上限                                    /
+uBound = 2# 定义活跃度上限                                    /
 AVE = 1 # 活跃度+SIS流行病过程平均次数
-step = 2000 # 稳态终止时间
+step = 200 # 稳态终止时间
 eta = 1
 infectSeeds = 0.01 # 初始I态节点比例
 miuRecover = 0.01 # 定义恢复率，常数,
-lanbtaInter = 0.05# 定义
-lanbtaInfect0 = 0.055 # 设置初始的感染值
+lanbtaInter = 0.8 #0.05
+lanbtaInfect0 = 0.455 # 设置初始的感染值
 LanbtaMax = 1.5 # 最大感染概率
 
 # 定义活跃度驱动模型类，包含网络构建和流行病传播等方法
@@ -54,7 +54,7 @@ class ActivityDrivenModel:
                         self.G[i][j]['weight'] = 1  # 设置边的权重属性为1
                     else:  # 如果图中已经有边<i,j>
                         self.G[i][j]['weight'] += 1  # 将边的权重属性加1
-            adjMatrix = nx.to_numpy_matrix(self.G)  # 将图转换为邻接矩阵
+            adjMatrix = nx.to_numpy_matrix(self.G,dtype='float32')  # 将图转换为邻接矩阵
             adjMatrixList.append(adjMatrix)  # 将邻接矩阵加入到列表中
             aveDegree = np.mean(np.sum(adjMatrix, axis=0))  # 计算平均度
             aveDegreeList.append(aveDegree)  # 将平均度加入到列表中
@@ -200,20 +200,20 @@ class ActivityDrivenModel:
         plt.title("感染率和恢复率与时间的关系") # 设置标题
         plt.legend() # 显示图例
         plt.show() # 显示图形
-    def plotinfectCount(self,infectCount):
-        plt.figure()
-        plt.plot(range(step),infectCount,label='感染数')
-        plt.xlabel("时间")
-        plt.ylabel("感染人数随时间的变化")
-        plt.legend()
-        plt.show()
-    def plotrecoverCount(self,recoverCount):
-        plt.figure()
-        plt.plot(range(step),recoverCount,label='感染数')
-        plt.xlabel("时间")
-        plt.ylabel("恢复人数随时间的变化")
-        plt.legend()
-        plt.show()
+    # def plotinfectCount(self,infectCount):
+    #     plt.figure()
+    #     plt.plot(range(step),infectCount,label='感染数')
+    #     plt.xlabel("时间")
+    #     plt.ylabel("感染人数随时间的变化")
+    #     plt.legend()
+    #     plt.show()
+    # def plotrecoverCount(self,recoverCount):
+    #     plt.figure()
+    #     plt.plot(range(step),recoverCount,label='恢复数')
+    #     plt.xlabel("时间")
+    #     plt.ylabel("恢复人数随时间的变化")
+    #     plt.legend()
+    #     plt.show()
 
 
 # 主函数，测试代码功能
@@ -224,5 +224,5 @@ if __name__ == "__main__":
     infectRatioList, recoverRatioList,infectCount,recoverCount = model.SEIR(adjMatrixList) # 根据SIS模型进行流行病传播并返回感染比例列表和恢复比例列表
     model.plotAveDegree(aveDegreeList) # 绘制平均度随时间变化的折线图
     model.plotInfectRecover(infectRatioList, recoverRatioList) # 绘制感染比例和恢复比例随时间变化的折线图
-    model.plotinfectCount(infectCount)
-    model.plotrecoverCount(recoverCount)
+    # model.plotinfectCount(infectCount)
+    # model.plotrecoverCount(recoverCount)
