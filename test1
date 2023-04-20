@@ -1,0 +1,160 @@
+# 导入NetworkX库
+import networkx as nx
+
+# 定义每一层网络的节点数、边数、度数
+N = 100 # 节点数
+k = 4 # 度数
+E = k * N / 2 # 边数
+
+# 定义两层网络之间的连接数和强度
+C = 50 # 连接数
+w = 0.1 # 连接强度
+
+# 定义传染病模型的参数
+beta = 0.2 # 感染率
+gamma = 0.1 # 康复率
+nu = 0.05 # 接种率
+
+# 创建两个空的网络对象
+G1 = nx.Graph() # 第一层网络，SIR模型
+G2 = nx.Graph() # 第二层网络，SIRV模型
+for i in range(N):
+    G1.add_node(i, state='S') # 第一层网络中的节点初始状态都是易感者（Susceptible）
+    G2.add_node(i, state='S') # 第二层网络中的节点初始状态都是易感者（Susceptible）
+
+# 随机选择一个节点作为初始感染者，并更新其状态
+import random
+patient_zero = random.choice(list(G1.nodes)) # 在第一层网络中随机选择一个节点
+G1.nodes[patient_zero]['state'] = 'I' # 将其状态更新为感染者（Infected）
+G2.nodes[patient_zero]['state'] = 'I' # 在第二层网络中也将其状态更新为感染者（Infected）
+
+# 为每个网络添加边，并为每条边分配权重
+for i in range(E):
+    # 在每个网络中随机选择两个不同的节点，并检查是否已经存在边，如果不存在则添加边，否则重新选择
+    while True:
+        u, v = random.sample(list(G1.nodes), 2) # 在第一层网络中随机选择两个节点
+        if not G1.has_edge(u, v): # 如果两个节点之间没有边
+            G1.add_edge(u, v, weight=1) # 则添加边，并将权重设为1
+            break # 跳出循环
+while True:
+        u, v = random.sample(list(G2.nodes), 2) # 在第二层网络中随机选择两个节点
+        if not G2.has_edge(u, v): # 如果两个节点之间没有边
+            G2.add_edge(u, v, weight=1) # 则添加边，并将权重设为1
+            break # 跳出循环
+
+# 为两层网络之间添加连接，并为每条连接分配权重
+for i in range(C):
+    # 随机选择两层网络中相同位置的节点，并检查是否已经存在连接，如果不存在则添加连接，否则重新选择
+    while True:
+        u = random.choice(list(G1.nodes)) # 在第一层网络中随机选择一个节点
+        v = u # 在第二层网络中选择相同位置的节点
+        if not G1.has_edge(u, v): # 如果两个节点之间没有连接
+            G1.add_edge(u, v, weight=w) # 则在第一层网络中添加连接，并将权重设为w
+            G2.add_edge(u, v, weight=w) # 同时在第二层网络中也添加连接，并将权重设为w
+            break # 跳出循环
+# 定义一个函数来模拟传染病的传播过程，并返回每个状态的人数随时间的变化列表
+def simulate(G1, G2, beta, gamma, nu, T):
+    # 初始化每个状态的人数列表
+    S1_list = [] # 第一层网络中易感者的人数列表
+    I1_list = [] # 第一层网络中感染者的人数列表
+    R1_list = [] # 第一层网络中康复者的人数列表
+    S2_list = [] # 第二层网络中易感者的人数列表
+    I2_list = [] # 第二层网络中感染者的人数列表
+    R2_list = [] # 第二层网络中康复者的人数列表
+    V2_list = [] # 第二层网络中接种者的人数列表
+#
+#     # 遍历每个时间步
+    for t in range(T):
+        # 统计每个状态的人数，并添加到相应的列表中
+        S1 = 0 # 第一层网络中易感者的人数
+        I1 = 0 # 第一层网络中感染者的人数
+        R1 = 0 # 第一层网络中康复者的人数
+        S2 = 0 # 第二层网络中易感者的人数
+        I2 = 0 # 第二层网络中感染者的人数
+        R2 = 0 # 第二层网络中康复者的人数
+        V2 = 0 # 第二层网络中接种者的人数
+        for i in G1.nodes:  # 遍历第一层网络中的每个节点
+            if G1.nodes[i]['state'] == 'S':  # 如果节点是易感者
+                S1 += 1  # 则增加易感者的人数
+            elif G1.nodes[i]['state'] == 'I':  # 如果节点是感染者
+                I1 += 1  # 则增加感染者的人数
+            elif G1.nodes[i]['state'] == 'R':  # 如果节点是康复者
+                R1 += 1  # 则增加康复者的人数
+
+        for i in G2.nodes:  # 遍历第二层网络中的每个节点
+            if G2.nodes[i]['state'] == 'S':  # 如果节点是易感者
+                S2 += 1  # 则增加易感者的人数
+            elif G2.nodes[i]['state'] == 'I':  # 如果节点是感染者
+                I2 += 1  # 则增加感染者的人数
+            elif G2.nodes[i]['state'] == 'R':  # 如果节点是康复者
+                R2 += 1  # 则增加康复者的人数
+            elif G2.nodes[i]['state'] == 'V':  # 如果节点是接种者
+                V2 += 1  # 则增加接种者的人数
+
+        S1_list.append(S1)  # 将第一层网络中易感者的人数添加到列表中
+        I1_list.append(I1)  # 将第一层网络中感染者的人数添加到列表中
+        R1_list.append(R1)  # 将第一层网络中康复者的人数添加到列表中
+        S2_list.append(S2)  # 将第二层网络中易感者的人数添加到列表中
+        I2_list.append(I2)  # 将第二层网络中感染者的人数添加到列表中
+        R2_list.append(R2)  # 将第二层网络中康复者的人数添加到列表中
+        V2_list.append(V2)  # 将第二层网络中接种者的人数添加到列表中
+        # 模拟传染病的传播过程，并更新每个节点的状态
+        for i in G1.nodes:  # 遍历第一层网络中的每个节点
+            if G1.nodes[i]['state'] == 'S':  # 如果节点是易感者
+                for j in G1.neighbors(i):  # 遍历节点的邻居
+                    if G1.nodes[j]['state'] == 'I':  # 如果邻居是感染者
+                        p = random.random()  # 生成一个随机数
+                        if p < beta:  # 如果随机数小于感染率
+                            G1.nodes[i]['state'] = 'I'  # 则节点被感染，并更新状态为感染者
+                            break  # 跳出循环
+            elif G1.nodes[i]['state'] == 'I':  # 如果节点是感染者
+                q = random.random()  # 生成一个随机数
+                if q < gamma:  # 如果随机数小于康复率
+                    G1.nodes[i]['state'] = 'R'  # 则节点康复，并更新状态为康复者
+
+        for i in G2.nodes:  # 遍历第二层网络中的每个节点
+            if G2.nodes[i]['state'] == 'S':  # 如果节点是易感者
+                for j in G2.neighbors(i):  # 遍历节点的邻居
+                    if G2.nodes[j]['state'] == 'I':  # 如果邻居是感染者
+                        p = random.random()  # 生成一个随机数
+                        if p < beta:  # 如果随机数小于感染率
+                            G2.nodes[i]['state'] = 'I'  # 则节点被感染，并更新状态为感染者
+                            break  # 跳出循环
+                r = random.random()  # 生成一个随机数
+                if r < nu: # 如果随机数小于接种率
+                    G2.nodes[i]['state'] = 'V' # 则节点接种，并更新状态为接种者
+            elif G2.nodes[i]['state'] == 'I': # 如果节点是感染者
+                q = random.random() # 生成一个随机数
+                if q < gamma: # 如果随机数小于康复率
+                    G2.nodes[i]['state'] = 'R' # 则节点康复，并更新状态为康复者
+
+    return S1_list, I1_list, R1_list, S2_list, I2_list, R2_list, V2_list # 返回每个状态的人数随时间的变化列表
+
+def plot(S1_list, I1_list, R1_list, S2_list, I2_list, R2_list, V2_list):
+        import matplotlib.pyplot as plt  # 导入matplotlib库来绘图
+        T = len(S1_list)  # 获取时间步数
+        t = range(T)  # 生成时间序列
+
+        plt.figure(figsize=(10, 5))  # 创建一个大小为10*5的画布
+
+        plt.subplot(121)  # 创建一个1*2的子图，选择第一个子图
+        plt.plot(t, S1_list, label='Susceptible')  # 绘制第一层网络中易感者的人数随时间的变化曲线，并添加标签
+        plt.plot(t, I1_list, label='Infected')  # 绘制第一层网络中感染者的人数随时间的变化曲线，并添加标签
+        plt.plot(t, R1_list, label='Recovered')  # 绘制第一层网络中康复者的人数随时间的变化曲线，并添加标签
+        plt.xlabel('Time')  # 添加横轴标签
+        plt.ylabel('Number of nodes')  # 添加纵轴标
+        plt.legend('Net1')
+
+        plt.subplot(122)
+        plt.plot(t, S2_list, label='Susceptible')  # 绘制第二层网络中易感者的人数随时间的变化曲线，并添加标签
+        plt.plot(t, I2_list, label='Infected')  # 绘制第二层网络中感染者的人数随时间的变化曲线，并添加标签
+        plt.plot(t, R2_list, label='Recovered')  # 绘制第二层网络中康复者的人数随时间的变化曲线，并添加标签
+        plt.xlabel('Time')  # 添加横轴标签
+        plt.ylabel('Number of nodes')  # 添加纵轴标
+        plt.legend('Net2')
+        plt.show()
+
+
+
+
+
