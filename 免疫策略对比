@@ -1,0 +1,339 @@
+import networkx as nx
+import numpy as np
+import matplotlib.pyplot as plt
+import random
+import csv
+from pylab import mpl
+import pandas as pd
+import csv
+mpl.rcParams["font.sans-serif"] = ["SimHei"]
+def generate_activity_list(n, a_min, a_max,gama):
+    activeList = []
+    for i in range(n):
+        activeValue = (a_max** (1 - gama) - a_min ** (1 - gama)) * random.random() + a_min ** (1 - gama)
+        activeValue = activeValue ** (1 / (1 - gama))  #
+        activeList.append(activeValue)
+    return activeList
+
+def generate_temporal_network(n, step, m, a):
+
+    temporal_network = {}
+    for t in range(step):
+        G = nx.Graph()
+        G.add_nodes_from(range(n))
+        for i in range(n):
+            r = np.random.random()
+            if r < a[i]:
+                neighbors = np.random.choice(range(n), m, replace=False)
+                G.add_edges_from([(i, j) for j in neighbors])
+        temporal_network[t] = G
+    return temporal_network
+
+
+def plot_temporal_network_metrics(temporal_network):
+
+    avg_clustering = []
+    avg_degree = []
+    avg_path_length = []
+    for t in temporal_network:
+        G = temporal_network[t]
+        avg_clustering.append(nx.average_clustering(G))
+        avg_degree.append(np.mean(list(dict(G.degree()).values())))
+        total_avg_path_length = 0
+        total_nodes = 0
+        for C in nx.connected_components(G):
+            S = G.subgraph(C)
+            n = S.number_of_nodes()
+            l = nx.average_shortest_path_length(S)
+            total_avg_path_length += n * l
+            total_nodes += n
+        final_avg_path_length = total_avg_path_length / total_nodes
+        avg_path_length.append(final_avg_path_length)
+    fig1 = plt.figure()
+    plt.plot(range(T), avg_clustering, color='blue', marker='o')
+    plt.xlabel('时间步')
+    plt.ylabel('平均聚类系数')
+    plt.title('时变网络平均聚类系数')
+    plt.show()
+    fig1.savefig('聚类系数.png')
+
+    fig2 = plt.figure()
+    plt.plot(range(T), avg_degree, color='green', marker='s')
+    plt.xlabel('时间步')
+    plt.ylabel('平均度')
+    plt.title('时变网络平均度')
+    plt.show()
+    fig2.savefig('平均步.png')
+
+    fig3 = plt.figure()
+    plt.plot(range(T), avg_path_length, color='red', marker='*')
+    plt.xlabel('时间步')
+    plt.ylabel('平均路径')
+    plt.title('时变网络平均路径')
+    plt.show()
+    fig3.savefig('平均路径长度.png')
+
+
+def simulate_and_plot(temporal_network, model, beta, gamma=None, epsilon=None):
+
+    n = len(temporal_network[0].nodes())
+    T = len(temporal_network)
+    S = []
+    I = []
+    E = []
+    R = []
+    state = np.zeros(n, dtype=int)
+    state[np.random.randint(n)] = 1
+    for t in temporal_network:
+        G = temporal_network[t]
+        S.append(np.sum(state == 0) / n)
+        I.append(np.sum(state == 1) / n)
+        E.append(np.sum(state == 2) / n)
+        R.append(np.sum(state == 3) / n)
+        for i in range(n):
+            if state[i] == 0 and any(state[j] == 1 for j in G.neighbors(i)):
+                r = np.random.random()
+                if r < beta:
+                    if model in ['SI', 'SIS','SIR']:
+                        state[i] = 1
+                    elif model in ['SIER']:
+                        state[i] = 2
+            if state[i] == 1 and model in ['SIS', 'SIR']:
+                r = np.random.random()
+                if r < gamma:
+                    if model == 'SIS':
+                        state[i] = 0
+                    elif model == 'SIR':
+                        state[i] = 3
+            if state[i] == 2 and model == 'SIER':
+                r = np.random.random()
+                if r < epsilon:
+                    state[i] = 1
+
+    fig = plt.figure()
+    plt.plot(range(T), S, color='blue', label='易感者')
+    plt.plot(range(T), I, color='red', label='感染者')
+    plt.plot(range(T), E, color='orange', label='暴露者')
+    plt.plot(range(T), R, color='green', label='免疫者')
+    plt.xlabel('时间步')
+    plt.ylabel('比例')
+    plt.title(f'时变网络{model}模型')
+    plt.legend()
+    plt.show()
+    fig.savefig(f'{model}.png')
+
+# 定义一个函数，输入为一个网络和一个状态数组，输出为一个易感者的索引列表
+def get_susceptible_nodes(G, state):
+    # 创建一个空的列表
+    susceptible_nodes = []
+    # 遍历网络的所有节点
+    for i in G.nodes():
+        # 如果节点的状态是0，即易感者，就将其索引添加到列表中
+        if state[i] == 0:
+            susceptible_nodes.append(i)
+    # 返回列表
+    return susceptible_nodes
+
+
+# 定义一个函数，输入为一个网络和一个状态数组，输出为一个感染者的比例
+def get_infection_rate(G, state):
+    # 获取网络的节点数
+    n = len(G.nodes())
+    # 获取状态为1，即感染者的节点数
+    i = np.sum(state == 1)
+    # 计算并返回感染者的比例
+    return i / n
+
+
+# 定义一个函数，输入为一个网络和一个状态数组，输出为一个影响力数组
+def get_influence_score(G, state):
+    # 获取网络的节点数
+    n = len(G.nodes())
+    # 创建一个影响力数组，初始值为0
+    influence = np.zeros(n)
+    # 遍历网络的所有节点
+    for i in G.nodes():
+        # 如果节点的状态是0，即易感者，就计算其影响力
+        if state[i] == 0:
+            # 影响力等于节点的度数乘以邻居中感染者的比例
+            influence[i] = G.degree(i) * np.mean([state[j] == 1 for j in G.neighbors(i)])
+    # 返回影响力数组
+    return influence
+
+# 随机免疫策略，随机选择一定比例的易感者进行免疫
+def simulate_and_plot_with_random_vaccination(temporal_network, model, beta, gamma=None, epsilon=None, v=None):
+    n = len(temporal_network[0].nodes())
+    T = len(temporal_network)
+    S = []
+    I = []
+    E = []
+    R = []
+    state = np.zeros(n, dtype=int)
+    state[np.random.randint(n)] = 1
+    for t in temporal_network:
+        G = temporal_network[t]
+        S.append(np.sum(state == 0) / n)
+        I.append(np.sum(state == 1) / n)
+        E.append(np.sum(state == 2) / n)
+        R.append(np.sum(state == 3) / n)
+        if v and t == v:
+            # 获取易感者的索引列表
+            susceptible_nodes = get_susceptible_nodes(G, state)
+            # 获取感染者的比例
+            infection_rate = get_infection_rate(G, state)
+                # 随机打乱易感者的索引
+            np.random.shuffle(susceptible_nodes)
+            # 免疫总易感者的10%
+            num_vaccinated = int(v[1]* len(susceptible_nodes))
+            # 从 随机打乱后的易感者中选择前num_vaccinated个进行免疫，并将其状态改为3
+            for i in range(num_vaccinated):
+                    state[susceptible_nodes[i]] = 3
+        for i in range(n):
+            if state[i] == 0 and any(state[j] == 1 for j in G.neighbors(i)):
+                r = np.random.random()
+                if r < beta:
+                    if model in ['SI', 'SIS','SIR']:
+                        state[i] = 1
+                    elif model in ['SIER']:
+                        state[i] = 2
+            if state[i] == 1 and model in ['SIS', 'SIR']:
+                r = np.random.random()
+                if r < gamma:
+                    if model == 'SIS':
+                        state[i] = 0
+                    elif model == 'SIR':
+                        state[i] = 3
+            if state[i] == 2 and model == 'SIER':
+                r = np.random.random()
+                if r < epsilon:
+                    state[i] = 1
+    strategy = list(zip(S, I, E, R))
+    return strategy
+
+# 目标免疫策略，选择活跃度最高的一定比例的易感者进行免疫
+def simulate_and_plot_with_targeted_vaccination(temporal_network, model, beta, gamma=None, epsilon=None, v=None,a=None):
+    n = len(temporal_network[0].nodes())
+    T = len(temporal_network)
+    S = []
+    I = []
+    E = []
+    R = []
+    state = np.zeros(n, dtype=int)
+    state[np.random.randint(n)] = 1
+    for t in temporal_network:
+        G = temporal_network[t]
+        S.append(np.sum(state == 0) / n)
+        I.append(np.sum(state == 1) / n)
+        E.append(np.sum(state == 2) / n)
+        R.append(np.sum(state == 3) / n)
+        if v and t == v:
+            # 获取易感者的索引列表
+            susceptible_nodes = get_susceptible_nodes(G, state)
+            # 获取感染者的比例
+            infection_rate = get_infection_rate(G, state)
+            # 根据活跃度对易感者进行排序，活跃度越高，排名越靠前
+            influence=get_influence_score(G,state)
+            susceptible_nodes.sort(key=lambda x:influence[x]+a[x], reverse=True)
+            # 免疫总易感者的10%
+            num_vaccinated = int(v[1] * len(susceptible_nodes))
+            # 从 活跃度最高的易感者中选择前num_vaccinated个进行免疫，并将其状态改为3
+            for i in range(num_vaccinated):
+                state[susceptible_nodes[i]] = 3
+        for i in range(n):
+            if state[i] == 0 and any(state[j] == 1 for j in G.neighbors(i)):
+                r = np.random.random()
+                if r < beta:
+                    if model in ['SI', 'SIS','SIR']:
+                        state[i] = 1
+                    elif model in ['SIER']:
+                        state[i] = 2
+            if state[i] == 1 and model in ['SIS', 'SIR']:
+                r = np.random.random()
+                if r < gamma:
+                    if model == 'SIS':
+                        state[i] = 0
+                    elif model == 'SIR':
+                        state[i] = 3
+            if state[i] == 2 and model == 'SIER':
+                r = np.random.random()
+                if r < epsilon:
+                    state[i] = 1
+    strategy = list(zip(S, I, E, R))
+    return strategy
+
+
+
+
+
+# 定义一个函数，输入为两个免疫策略的列表值，输出为一个图像
+def plot_immunity_strategies(strategy1, strategy2):
+    # 检查两个列表的长度是否相同
+    if len(strategy1) != len(strategy2):
+        print("两个列表的长度不同，无法绘图")
+        return
+    # 获取列表的长度
+    n = len(strategy1)
+    # 创建一个新的图像
+    plt.figure()
+    plt.plot(range(n), [s[0] for s in strategy1], "b-", label="随机免疫策略易感者")
+    plt.plot(range(n), [s[1] for s in strategy1], "r-",label="随机免疫策略感染者")
+    plt.plot(range(n), [s[2] for s in strategy1], "y-",label="随机免疫策略暴露者")
+    plt.plot(range(n), [s[3] for s in strategy1], "g-",label="随机免疫策略免疫者")
+
+    plt.plot(range(n), [s[0] for s in strategy2], "b--", label="目标免疫策略易感者")
+    plt.plot(range(n), [s[1] for s in strategy2], "r--",label="目标免疫策略感染者")
+    plt.plot(range(n), [s[2] for s in strategy2], "y--",label="目标免疫策略暴露者")
+    plt.plot(range(n), [s[3] for s in strategy2], "g--",label="目标免疫策略免疫者")
+    # 添加图例，位置为右上角
+    plt.legend(loc="upper right")
+    # 添加x轴和y轴的标签
+    plt.xlabel("时间步")
+    plt.ylabel("人数比例")
+    # 添加标题
+    plt.title("两种免疫策略的对比")
+    # 显示图像
+    plt.show()
+    plt.savefig('test.jpg')
+
+
+filename = 'activity.csv'
+
+n = 1000
+T = 400# 时间步数
+m = 5 # 每个时刻的最大连边数
+a_min = 0.01# 最小活跃度
+a_max = 1# 最大活跃度
+gama=2.5
+beta = 0.6# 感染率
+gamma = 0.01# 恢复率或移除率
+epsilon = 0.1 # 暴露率
+a = generate_activity_list(n, a_min, a_max,gama)
+data2 = pd.DataFrame(data=a, index=None)
+data2.to_csv('Test_activeValue')
+temporal_network = generate_temporal_network(n, T, m, a)
+# plot_temporal_network_metrics(temporal_network)
+
+
+simulate_and_plot(temporal_network, 'SI', beta)
+# simulate_and_plot(temporal_network, 'SIS', beta, gamma)
+# simulate_and_plot(temporal_network, 'SIR', beta, gamma)
+# simulate_and_plot(temporal_network, 'SIER', beta, gamma, epsilon)
+
+v1 = {20: 0.1}
+v2 = {20: 0.1}
+
+
+# strategy1=simulate_and_plot_with_random_vaccination(temporal_network, 'SI', beta, gamma, v=v1)
+strategy1=simulate_and_plot_with_random_vaccination(temporal_network, 'SIS', beta, gamma, v=v1)
+# strategy1=simulate_and_plot_with_random_vaccination(temporal_network, 'SIR', beta, gamma, v=v1)
+# strategy1=simulate_and_plot_with_random_vaccination(temporal_network, 'SIER', beta, gamma, v=v1)
+
+
+
+# strategy2=simulate_and_plot_with_targeted_vaccination(temporal_network, 'SI', beta, gamma, v=v2,a=a)
+strategy2=simulate_and_plot_with_targeted_vaccination(temporal_network, 'SIS', beta, gamma, v=v2,a=a)
+# strategy2=simulate_and_plot_with_targeted_vaccination(temporal_network, 'SIR', beta, gamma, v=v2,a=a)
+# strategy2=simulate_and_plot_with_targeted_vaccination(temporal_network, 'SIER', beta, gamma, v=v2,a=a)
+
+
+plot_immunity_strategies(strategy1, strategy2)
