@@ -163,7 +163,6 @@ def get_influence_score(G, state):
 # 随机免疫策略，随机选择一定比例的易感者进行免疫
 def simulate_and_plot_with_random_vaccination(temporal_network, model, beta, gamma=None, epsilon=None, v=None):
     n = len(temporal_network[0].nodes())
-    T = len(temporal_network)
     S = []
     I = []
     E = []
@@ -176,15 +175,13 @@ def simulate_and_plot_with_random_vaccination(temporal_network, model, beta, gam
         I.append(np.sum(state == 1) / n)
         E.append(np.sum(state == 2) / n)
         R.append(np.sum(state == 3) / n)
-        if v and t == v:
+        if t==20:
             # 获取易感者的索引列表
             susceptible_nodes = get_susceptible_nodes(G, state)
-            # 获取感染者的比例
-            infection_rate = get_infection_rate(G, state)
                 # 随机打乱易感者的索引
             np.random.shuffle(susceptible_nodes)
             # 免疫总易感者的10%
-            num_vaccinated = int(v[1]* len(susceptible_nodes))
+            num_vaccinated = int(0.1* len(susceptible_nodes))
             # 从 随机打乱后的易感者中选择前num_vaccinated个进行免疫，并将其状态改为3
             for i in range(num_vaccinated):
                     state[susceptible_nodes[i]] = 3
@@ -213,7 +210,6 @@ def simulate_and_plot_with_random_vaccination(temporal_network, model, beta, gam
 # 目标免疫策略，选择活跃度最高的一定比例的易感者进行免疫
 def simulate_and_plot_with_targeted_vaccination(temporal_network, model, beta, gamma=None, epsilon=None, v=None,a=None):
     n = len(temporal_network[0].nodes())
-    T = len(temporal_network)
     S = []
     I = []
     E = []
@@ -226,16 +222,14 @@ def simulate_and_plot_with_targeted_vaccination(temporal_network, model, beta, g
         I.append(np.sum(state == 1) / n)
         E.append(np.sum(state == 2) / n)
         R.append(np.sum(state == 3) / n)
-        if v and t == v:
+        if t == 20:
             # 获取易感者的索引列表
             susceptible_nodes = get_susceptible_nodes(G, state)
-            # 获取感染者的比例
-            infection_rate = get_infection_rate(G, state)
             # 根据活跃度对易感者进行排序，活跃度越高，排名越靠前
             influence=get_influence_score(G,state)
             susceptible_nodes.sort(key=lambda x:influence[x]+a[x], reverse=True)
             # 免疫总易感者的10%
-            num_vaccinated = int(v[1] * len(susceptible_nodes))
+            num_vaccinated = int(0.1 * len(susceptible_nodes))
             # 从 活跃度最高的易感者中选择前num_vaccinated个进行免疫，并将其状态改为3
             for i in range(num_vaccinated):
                 state[susceptible_nodes[i]] = 3
@@ -293,6 +287,7 @@ def plot_immunity_strategies(strategy1, strategy2):
     plt.title("两种免疫策略的对比")
     # 显示图像
     plt.show()
+    plt.xlim(0, 400)
     plt.savefig('test.jpg')
 
 
@@ -314,26 +309,23 @@ temporal_network = generate_temporal_network(n, T, m, a)
 # plot_temporal_network_metrics(temporal_network)
 
 
-simulate_and_plot(temporal_network, 'SI', beta)
+# simulate_and_plot(temporal_network, 'SI', beta)
 # simulate_and_plot(temporal_network, 'SIS', beta, gamma)
 # simulate_and_plot(temporal_network, 'SIR', beta, gamma)
 # simulate_and_plot(temporal_network, 'SIER', beta, gamma, epsilon)
 
-v1 = {20: 0.1}
-v2 = {20: 0.1}
 
-
-# strategy1=simulate_and_plot_with_random_vaccination(temporal_network, 'SI', beta, gamma, v=v1)
-strategy1=simulate_and_plot_with_random_vaccination(temporal_network, 'SIS', beta, gamma, v=v1)
+# strategy1=simulate_and_plot_with_random_vaccination(temporal_network, 'SI', beta, gamma,)
+strategy1=simulate_and_plot_with_random_vaccination(temporal_network, 'SIS', beta, gamma)
 # strategy1=simulate_and_plot_with_random_vaccination(temporal_network, 'SIR', beta, gamma, v=v1)
-# strategy1=simulate_and_plot_with_random_vaccination(temporal_network, 'SIER', beta, gamma, v=v1)
+# strategy1=simulate_and_plot_with_random_vaccination(temporal_network, 'SIER', beta, gamma, epsilon=epsilon)
 
 
 
-# strategy2=simulate_and_plot_with_targeted_vaccination(temporal_network, 'SI', beta, gamma, v=v2,a=a)
-strategy2=simulate_and_plot_with_targeted_vaccination(temporal_network, 'SIS', beta, gamma, v=v2,a=a)
-# strategy2=simulate_and_plot_with_targeted_vaccination(temporal_network, 'SIR', beta, gamma, v=v2,a=a)
-# strategy2=simulate_and_plot_with_targeted_vaccination(temporal_network, 'SIER', beta, gamma, v=v2,a=a)
+# strategy2=simulate_and_plot_with_targeted_vaccination(temporal_network, 'SI', beta, gamma,a=a)
+strategy2=simulate_and_plot_with_targeted_vaccination(temporal_network, 'SIS', beta, gamma,a=a)
+# strategy2=simulate_and_plot_with_targeted_vaccination(temporal_network, 'SIR', beta, gamma, v=v,a=a)
+# strategy2=simulate_and_plot_with_targeted_vaccination(temporal_network, 'SIER', beta, gamma,epsilon=epsilon,a=a)
 
 
 plot_immunity_strategies(strategy1, strategy2)
